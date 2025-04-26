@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    StyleSheet,
+    ScrollView,
+    ActivityIndicator,
+    Alert,
+} from 'react-native';
 import axios from 'axios';
+import ResultModal from '../components/ResultModal.jsx'; // Adjust this path if needed
 
 export default function HomeScreen() {
     const [inputs, setInputs] = useState({
@@ -14,8 +24,10 @@ export default function HomeScreen() {
         Trihalomethanes: '',
         Turbidity: '',
     });
+
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
+    const [showModal, setShowModal] = useState(false);
 
     const handleInputChange = (name, value) => {
         setInputs({ ...inputs, [name]: value });
@@ -34,27 +46,17 @@ export default function HomeScreen() {
             return;
         }
         setLoading(true);
-        console.log('Request payload:', {
-            features: Object.values(inputs).map((value) => parseFloat(value)),
-        });
-    
         try {
             const response = await axios.post(
-                'http://10.24.78.93:5000/predict', // Replace with your backend IP
+                'http://192.168.43.142:5000/predict',
                 { features: Object.values(inputs).map((value) => parseFloat(value)) },
                 { timeout: 10000 }
             );
-            console.log('Server response:', response.data);
             const prediction = response.data.prediction === 1 ? 'Safe' : 'Unsafe';
-            console.log('Prediction:', prediction);
             setResult(prediction);
+            setShowModal(true); // Show the result modal
         } catch (error) {
-            console.error('Request failed:', error.message);
-            if (error.response) {
-                console.error('Server error response:', error.response.data);
-            } else if (error.code === 'ECONNABORTED') {
-                console.error('Request timed out');
-            }
+            console.error('Prediction Error:', error);
             Alert.alert('Error', `Failed to get prediction: ${error.message}`);
         } finally {
             setLoading(false);
@@ -67,6 +69,7 @@ export default function HomeScreen() {
                 <Text style={styles.headerTitle}>Water Quality Checker</Text>
                 <Text style={styles.headerSubtitle}>Enter parameters to check water safety.</Text>
             </View>
+
             {[
                 { label: 'pH', name: 'ph' },
                 { label: 'Hardness (mg/L)', name: 'Hardness' },
@@ -89,6 +92,7 @@ export default function HomeScreen() {
                     />
                 </View>
             ))}
+
             <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={checkWaterSafety}
@@ -100,13 +104,12 @@ export default function HomeScreen() {
                     <Text style={styles.buttonText}>Check Water Safety</Text>
                 )}
             </TouchableOpacity>
-            {result && (
-                <View style={[styles.resultContainer, result === 'Safe' ? styles.resultSafe : styles.resultUnsafe]}>
-                    <Text style={styles.resultText}>
-                        The water is <Text style={styles.resultHighlight}>{result}</Text> to drink.
-                    </Text>
-                </View>
-            )}
+
+            <ResultModal
+                visible={showModal}
+                result={result}
+                onClose={() => setShowModal(false)}
+            />
         </ScrollView>
     );
 }
@@ -145,9 +148,4 @@ const styles = StyleSheet.create({
     },
     buttonDisabled: { backgroundColor: '#a0a0a0' },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    resultContainer: { marginTop: 20, padding: 15, borderRadius: 10, alignItems: 'center' },
-    resultSafe: { backgroundColor: '#e6f4ea', borderColor: '#28a745', borderWidth: 1 },
-    resultUnsafe: { backgroundColor: '#f8d7da', borderColor: '#dc3545', borderWidth: 1 },
-    resultText: { fontSize: 18, color: '#333' },
-    resultHighlight: { fontWeight: 'bold', color: '#1a3c34' },
 });
